@@ -2,7 +2,6 @@ package logrus
 
 import (
 	"context"
-	"io"
 	"time"
 )
 
@@ -15,35 +14,10 @@ func StandardLogger() *Logger {
 	return std
 }
 
-// SetOutput sets the standard logger output.
-func SetOutput(out io.Writer) {
-	std.SetOutput(out)
-}
-
-// SetFormatter sets the standard logger formatter.
-func SetFormatter(formatter Formatter) {
-	std.SetFormatter(formatter)
-}
-
 // SetReportCaller sets whether the standard logger will include the calling
 // method as a field.
 func SetReportCaller(include bool) {
 	std.SetReportCaller(include)
-}
-
-// SetLevel sets the standard logger level.
-func SetLevel(level Level) {
-	std.SetLevel(level)
-}
-
-// GetLevel returns the standard logger level.
-func GetLevel() Level {
-	return std.GetLevel()
-}
-
-// IsLevelEnabled checks if the log level of the standard logger is greater than the level param
-func IsLevelEnabled(level Level) bool {
-	return std.IsLevelEnabled(level)
 }
 
 // AddHook adds a hook to the standard logger hooks.

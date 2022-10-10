@@ -77,9 +77,6 @@ type TextFormatter struct {
 	// QuoteEmptyFields will wrap empty fields in quotes if true
 	QuoteEmptyFields bool
 
-	// Whether the logger's out is to a terminal
-	isTerminal bool
-
 	// FieldMap allows users to customize the names of keys for default fields.
 	// As an example:
 	// formatter := &TextFormatter{
@@ -95,16 +92,13 @@ type TextFormatter struct {
 	// corresponding key will be removed from fields.
 	CallerPrettyfier func(*runtime.Frame) (function string, file string)
 
-	terminalInitOnce sync.Once
+	initOnce sync.Once
 
 	// The max length of the level text, generated dynamically on init
 	levelTextMaxLength int
 }
 
 func (f *TextFormatter) init(entry *Entry) {
-	if entry.Logger != nil {
-		f.isTerminal = checkIfTerminal(entry.Logger.Out)
-	}
 	// Get the max length of the level text
 	for _, level := range AllLevels {
 		levelTextLength := utf8.RuneCount([]byte(level.String()))
@@ -114,8 +108,8 @@ func (f *TextFormatter) init(entry *Entry) {
 	}
 }
 
-func (f *TextFormatter) isColored() bool {
-	isColored := f.ForceColors || (f.isTerminal && (runtime.GOOS != "windows"))
+func (f *TextFormatter) isColored(isTerminal bool) bool {
+	isColored := f.ForceColors || (isTerminal && (runtime.GOOS != "windows"))
 
 	if f.EnvironmentOverrideColors {
 		switch force, ok := os.LookupEnv("CLICOLOR_FORCE"); {
@@ -130,7 +124,17 @@ func (f *TextFormatter) isColored() bool {
 }
 
 // Format renders a single log entry
+func (f *TextFormatter) FormatForTerminal(entry *Entry) ([]byte, error) {
+	return f.format(entry, true)
+}
+
+// Format renders a single log entry
 func (f *TextFormatter) Format(entry *Entry) ([]byte, error) {
+	return f.format(entry, false)
+}
+
+// Format renders a single log entry
+func (f *TextFormatter) format(entry *Entry, isTerminal bool) ([]byte, error) {
 	data := make(Fields)
 	for k, v := range entry.Data {
 		data[k] = v
@@ -175,7 +179,7 @@ func (f *TextFormatter) Format(entry *Entry) ([]byte, error) {
 			sort.Strings(keys)
 			fixedKeys = append(fixedKeys, keys...)
 		} else {
-			if !f.isColored() {
+			if !f.isColored(isTerminal) {
 				fixedKeys = append(fixedKeys, keys...)
 				f.SortingFunc(fixedKeys)
 			} else {
@@ -193,16 +197,15 @@ func (f *TextFormatter) Format(entry *Entry) ([]byte, error) {
 		b = &bytes.Buffer{}
 	}
 
-	f.terminalInitOnce.Do(func() { f.init(entry) })
+	f.initOnce.Do(func() { f.init(entry) })
 
 	timestampFormat := f.TimestampFormat
 	if timestampFormat == "" {
 		timestampFormat = defaultTimestampFormat
 	}
-	if f.isColored() {
+	if f.isColored(isTerminal) {
 		f.printColored(b, entry, keys, data, timestampFormat)
 	} else {
-
 		for _, key := range fixedKeys {
 			var value interface{}
 			switch {

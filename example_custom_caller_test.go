@@ -12,8 +12,7 @@ import (
 func ExampleJSONFormatter_CallerPrettyfier() {
 	l := logrus.New()
 	l.SetReportCaller(true)
-	l.Out = os.Stdout
-	l.Formatter = &logrus.JSONFormatter{
+	formatter := &logrus.JSONFormatter{
 		DisableTimestamp: true,
 		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
 			s := strings.Split(f.Function, ".")
@@ -22,6 +21,8 @@ func ExampleJSONFormatter_CallerPrettyfier() {
 			return funcname, filename
 		},
 	}
+	l.RegisterSink(&logrus.SinkWriter{Out: os.Stdout, Formatter: formatter}, logrus.InfoLevel)
+
 	l.Info("example of custom format caller")
 	// Output:
 	// {"file":"example_custom_caller_test.go","func":"ExampleJSONFormatter_CallerPrettyfier","level":"info","msg":"example of custom format caller"}

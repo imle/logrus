@@ -546,7 +546,6 @@ func TestTextFormatterIsColored(t *testing.T) {
 	for _, val := range params {
 		t.Run("textformatter_"+val.name, func(subT *testing.T) {
 			tf := TextFormatter{
-				isTerminal:                val.isTerminal,
 				DisableColors:             val.disableColor,
 				ForceColors:               val.forceColor,
 				EnvironmentOverrideColors: val.envColor,
@@ -558,7 +557,7 @@ func TestTextFormatterIsColored(t *testing.T) {
 			if val.clicolorForceIsSet {
 				os.Setenv("CLICOLOR_FORCE", val.clicolorForceVal)
 			}
-			res := tf.isColored()
+			res := tf.isColored(val.isTerminal)
 			if runtime.GOOS == "windows" && !tf.ForceColors && !val.clicolorForceIsSet {
 				assert.Equal(subT, false, res)
 			} else {

@@ -3,6 +3,7 @@ package logrus_test
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/sirupsen/logrus"
 )
@@ -25,7 +26,7 @@ func ExampleLogger_Writer_httpServer() {
 
 func ExampleLogger_Writer_stdlib() {
 	logger := logrus.New()
-	logger.Formatter = &logrus.JSONFormatter{}
+	logger.RegisterSink(&logrus.SinkWriter{Out: os.Stderr, Formatter: &logrus.JSONFormatter{}}, logrus.InfoLevel)
 
 	// Use logrus for standard log output
 	// Note that `log` here references stdlib's log

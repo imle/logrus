@@ -3,8 +3,11 @@
 ## Usage
 
 ```go
+package main
+
 import (
   "log/syslog"
+  
   "github.com/sirupsen/logrus"
   lSyslog "github.com/sirupsen/logrus/hooks/syslog"
 )
@@ -22,8 +25,11 @@ func main() {
 If you want to connect to local syslog (Ex. "/dev/log" or "/var/run/syslog" or "/var/run/log"). Just assign empty string to the first two parameters of `NewSyslogHook`. It should look like the following.
 
 ```go
+package main
+
 import (
   "log/syslog"
+  
   "github.com/sirupsen/logrus"
   lSyslog "github.com/sirupsen/logrus/hooks/syslog"
 )

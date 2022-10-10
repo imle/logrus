@@ -13,11 +13,9 @@ import (
 func TestFieldValueError(t *testing.T) {
 	buf := &bytes.Buffer{}
 	l := &Logger{
-		Out:       buf,
-		Formatter: new(JSONFormatter),
-		Hooks:     make(LevelHooks),
-		Level:     DebugLevel,
+		Hooks: make(LevelHooks),
 	}
+	l.RegisterSink(&SinkWriter{Out: buf, Formatter: &JSONFormatter{}}, DebugLevel)
 	l.WithField("func", func() {}).Info("test")
 	fmt.Println(buf.String())
 	var data map[string]interface{}
@@ -31,11 +29,9 @@ func TestFieldValueError(t *testing.T) {
 func TestNoFieldValueError(t *testing.T) {
 	buf := &bytes.Buffer{}
 	l := &Logger{
-		Out:       buf,
-		Formatter: new(JSONFormatter),
-		Hooks:     make(LevelHooks),
-		Level:     DebugLevel,
+		Hooks: make(LevelHooks),
 	}
+	l.RegisterSink(&SinkWriter{Out: buf, Formatter: &JSONFormatter{}}, DebugLevel)
 	l.WithField("str", "str").Info("test")
 	fmt.Println(buf.String())
 	var data map[string]interface{}
@@ -47,30 +43,26 @@ func TestNoFieldValueError(t *testing.T) {
 }
 
 func TestWarninglnNotEqualToWarning(t *testing.T) {
-	buf := &bytes.Buffer{}
-	bufln := &bytes.Buffer{}
-
 	formatter := new(TextFormatter)
 	formatter.DisableTimestamp = true
 	formatter.DisableLevelTruncation = true
 
-	l := &Logger{
-		Out:       buf,
-		Formatter: formatter,
-		Hooks:     make(LevelHooks),
-		Level:     DebugLevel,
-	}
-	l.Warning("hello,", "world")
+	buf := &bytes.Buffer{}
+	log := &Logger{Hooks: make(LevelHooks)}
+	log.RegisterSink(&SinkWriter{Out: buf, Formatter: formatter}, DebugLevel)
+	log.Warning("hello,", "world")
 
-	l.SetOutput(bufln)
-	l.Warningln("hello,", "world")
+	bufLn := &bytes.Buffer{}
+	logLn := &Logger{Hooks: make(LevelHooks)}
+	logLn.RegisterSink(&SinkWriter{Out: bufLn, Formatter: formatter}, DebugLevel)
+	logLn.Warningln("hello,", "world")
 
-	assert.NotEqual(t, buf.String(), bufln.String(), "Warning() and Wantingln() should not be equal")
+	assert.NotEqual(t, buf.String(), bufLn.String(), "Warning() and Wantingln() should not be equal")
 }
 
 type testBufferPool struct {
 	buffers []*bytes.Buffer
-	get int
+	get     int
 }
 
 func (p *testBufferPool) Get() *bytes.Buffer {
@@ -85,7 +77,7 @@ func (p *testBufferPool) Put(buf *bytes.Buffer) {
 func TestLogger_SetBufferPool(t *testing.T) {
 	out := &bytes.Buffer{}
 	l := New()
-	l.SetOutput(out)
+	l.RegisterSink(&SinkWriter{Out: out}, InfoLevel)
 
 	pool := new(testBufferPool)
 	l.SetBufferPool(pool)

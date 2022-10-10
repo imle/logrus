@@ -39,7 +39,7 @@ func (hook *TestHook) Levels() []Level {
 func TestHookFires(t *testing.T) {
 	hook := new(TestHook)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Hooks.Add(hook)
 		assert.Equal(t, hook.Fired, false)
 
@@ -72,7 +72,7 @@ func (hook *ModifyHook) Levels() []Level {
 func TestHookCanModifyEntry(t *testing.T) {
 	hook := new(ModifyHook)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Hooks.Add(hook)
 		log.WithField("wow", "elephant").Print("test")
 	}, func(fields Fields) {
@@ -84,7 +84,7 @@ func TestCanFireMultipleHooks(t *testing.T) {
 	hook1 := new(ModifyHook)
 	hook2 := new(TestHook)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Hooks.Add(hook1)
 		log.Hooks.Add(hook2)
 
@@ -106,8 +106,7 @@ func (h *SingleLevelModifyHook) Levels() []Level {
 func TestHookEntryIsPristine(t *testing.T) {
 	l := New()
 	b := &bytes.Buffer{}
-	l.Formatter = &JSONFormatter{}
-	l.Out = b
+	l.RegisterSink(&SinkWriter{Out: b, Formatter: &JSONFormatter{}}, InfoLevel)
 	l.AddHook(&SingleLevelModifyHook{})
 
 	l.Error("error message")
@@ -153,7 +152,7 @@ func (hook *ErrorHook) Levels() []Level {
 func TestErrorHookShouldntFireOnInfo(t *testing.T) {
 	hook := new(ErrorHook)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Hooks.Add(hook)
 		log.Info("test")
 	}, func(fields Fields) {
@@ -164,7 +163,7 @@ func TestErrorHookShouldntFireOnInfo(t *testing.T) {
 func TestErrorHookShouldFireOnError(t *testing.T) {
 	hook := new(ErrorHook)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Hooks.Add(hook)
 		log.Error("test")
 	}, func(fields Fields) {
@@ -176,7 +175,7 @@ func TestAddHookRace(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	hook := new(ErrorHook)
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		go func() {
 			defer wg.Done()
 			log.AddHook(hook)

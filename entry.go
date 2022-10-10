@@ -86,22 +86,6 @@ func (entry *Entry) Dup() *Entry {
 	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, Context: entry.Context, err: entry.err}
 }
 
-// Returns the bytes representation of this entry from the formatter.
-func (entry *Entry) Bytes() ([]byte, error) {
-	return entry.Logger.Formatter.Format(entry)
-}
-
-// Returns the string representation from the reader and ultimately the
-// formatter.
-func (entry *Entry) String() (string, error) {
-	serialized, err := entry.Bytes()
-	if err != nil {
-		return "", err
-	}
-	str := string(serialized)
-	return str, nil
-}
-
 // Add an error as single field (using the key defined in ErrorKey) to the Entry.
 func (entry *Entry) WithError(err error) *Entry {
 	return entry.WithField(ErrorKey, err)
@@ -219,8 +203,6 @@ func (entry Entry) HasCaller() (has bool) {
 }
 
 func (entry *Entry) log(level Level, msg string) {
-	var buffer *bytes.Buffer
-
 	newEntry := entry.Dup()
 
 	if newEntry.Time.IsZero() {
@@ -232,7 +214,6 @@ func (entry *Entry) log(level Level, msg string) {
 
 	newEntry.Logger.mu.Lock()
 	reportCaller := newEntry.Logger.ReportCaller
-	bufPool := newEntry.getBufferPool()
 	newEntry.Logger.mu.Unlock()
 
 	if reportCaller {
@@ -240,18 +221,8 @@ func (entry *Entry) log(level Level, msg string) {
 	}
 
 	newEntry.fireHooks()
-	buffer = bufPool.Get()
-	defer func() {
-		newEntry.Buffer = nil
-		buffer.Reset()
-		bufPool.Put(buffer)
-	}()
-	buffer.Reset()
-	newEntry.Buffer = buffer
 
-	newEntry.write()
-
-	newEntry.Buffer = nil
+	newEntry.Logger.sinks.emit(newEntry)
 
 	// To avoid Entry#log() returning a value that only would make sense for
 	// panic() to use in Entry#Panic(), we avoid the allocation by checking
@@ -283,26 +254,11 @@ func (entry *Entry) fireHooks() {
 	}
 }
 
-func (entry *Entry) write() {
-	entry.Logger.mu.Lock()
-	defer entry.Logger.mu.Unlock()
-	serialized, err := entry.Logger.Formatter.Format(entry)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to obtain reader, %v\n", err)
-		return
-	}
-	if _, err := entry.Logger.Out.Write(serialized); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to write to log, %v\n", err)
-	}
-}
-
 // Log will log a message at the level given as parameter.
 // Warning: using Log at Panic or Fatal level will not respectively Panic nor Exit.
 // For this behaviour Entry.Panic or Entry.Fatal should be used instead.
 func (entry *Entry) Log(level Level, args ...interface{}) {
-	if entry.Logger.IsLevelEnabled(level) {
-		entry.log(level, fmt.Sprint(args...))
-	}
+	entry.log(level, fmt.Sprint(args...))
 }
 
 func (entry *Entry) Trace(args ...interface{}) {
@@ -345,9 +301,7 @@ func (entry *Entry) Panic(args ...interface{}) {
 // Entry Printf family functions
 
 func (entry *Entry) Logf(level Level, format string, args ...interface{}) {
-	if entry.Logger.IsLevelEnabled(level) {
-		entry.Log(level, fmt.Sprintf(format, args...))
-	}
+	entry.Log(level, fmt.Sprintf(format, args...))
 }
 
 func (entry *Entry) Tracef(format string, args ...interface{}) {
@@ -390,9 +344,7 @@ func (entry *Entry) Panicf(format string, args ...interface{}) {
 // Entry Println family functions
 
 func (entry *Entry) Logln(level Level, args ...interface{}) {
-	if entry.Logger.IsLevelEnabled(level) {
-		entry.Log(level, entry.sprintlnn(args...))
-	}
+	entry.Log(level, entry.sprintlnn(args...))
 }
 
 func (entry *Entry) Traceln(args ...interface{}) {

@@ -23,7 +23,6 @@ func TestEntryWithError(t *testing.T) {
 	assert.Equal(err, WithError(err).Data["error"])
 
 	logger := New()
-	logger.Out = &bytes.Buffer{}
 	entry := NewEntry(logger)
 
 	assert.Equal(err, entry.WithError(err).Data["error"])
@@ -31,7 +30,6 @@ func TestEntryWithError(t *testing.T) {
 	ErrorKey = "err"
 
 	assert.Equal(err, entry.WithError(err).Data["err"])
-
 }
 
 func TestEntryWithContext(t *testing.T) {
@@ -41,7 +39,6 @@ func TestEntryWithContext(t *testing.T) {
 	assert.Equal(ctx, WithContext(ctx).Context)
 
 	logger := New()
-	logger.Out = &bytes.Buffer{}
 	entry := NewEntry(logger)
 
 	assert.Equal(ctx, entry.WithContext(ctx).Context)
@@ -52,7 +49,6 @@ func TestEntryWithContextCopiesData(t *testing.T) {
 
 	// Initialize a parent Entry object with a key/value set in its Data map
 	logger := New()
-	logger.Out = &bytes.Buffer{}
 	parentEntry := NewEntry(logger).WithField("parentKey", "parentValue")
 
 	// Create two children Entry objects from the parent in different contexts
@@ -93,7 +89,6 @@ func TestEntryWithTimeCopiesData(t *testing.T) {
 
 	// Initialize a parent Entry object with a key/value set in its Data map
 	logger := New()
-	logger.Out = &bytes.Buffer{}
 	parentEntry := NewEntry(logger).WithField("parentKey", "parentValue")
 
 	// Create two children Entry objects from the parent with two different times
@@ -140,7 +135,6 @@ func TestEntryPanicln(t *testing.T) {
 	}()
 
 	logger := New()
-	logger.Out = &bytes.Buffer{}
 	entry := NewEntry(logger)
 	entry.WithField("err", errBoom).Panicln("kaboom")
 }
@@ -162,7 +156,6 @@ func TestEntryPanicf(t *testing.T) {
 	}()
 
 	logger := New()
-	logger.Out = &bytes.Buffer{}
 	entry := NewEntry(logger)
 	entry.WithField("err", errBoom).Panicf("kaboom %v", true)
 }
@@ -184,7 +177,6 @@ func TestEntryPanic(t *testing.T) {
 	}()
 
 	logger := New()
-	logger.Out = &bytes.Buffer{}
 	entry := NewEntry(logger)
 	entry.WithField("err", errBoom).Panic("kaboom")
 }
@@ -210,8 +202,6 @@ func (p *panickyHook) Fire(entry *Entry) error {
 
 func TestEntryHooksPanic(t *testing.T) {
 	logger := New()
-	logger.Out = &bytes.Buffer{}
-	logger.Level = InfoLevel
 	logger.Hooks.Add(&panickyHook{})
 
 	defer func() {
@@ -255,8 +245,7 @@ func TestEntryWithIncorrectField(t *testing.T) {
 func TestEntryLogfLevel(t *testing.T) {
 	logger := New()
 	buffer := &bytes.Buffer{}
-	logger.Out = buffer
-	logger.SetLevel(InfoLevel)
+	logger.RegisterSink(NewSinkWriter(buffer), InfoLevel)
 	entry := NewEntry(logger)
 
 	entry.Logf(DebugLevel, "%s", "debug")
@@ -293,7 +282,7 @@ func TestEntryFormatterRace(t *testing.T) {
 		entry.Info("should not race")
 	}()
 	go func() {
-		logger.SetFormatter(&TextFormatter{})
+		logger.SetReportCaller(true)
 	}()
 	go func() {
 		entry.Info("should not race")

@@ -2,10 +2,8 @@ package logrus
 
 import (
 	"context"
-	"io"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -18,26 +16,19 @@ type Logger struct {
 	// The logs are `io.Copy`'d to this in a mutex. It's common to set this to a
 	// file, or leave it default which is `os.Stderr`. You can also set this to
 	// something more adventurous, such as logging to Kafka.
-	Out io.Writer
+	//Out io.Writer
+
+	// The logs are output to the sinks registered to the Logger.
+	// If no sinks are registered then a default Sink to Stderr is registered.
+	sinks LevelSinks
 	// Hooks for the logger instance. These allow firing events based on logging
 	// levels and log entries. For example, to send errors to an error tracking
 	// service, log to StatsD or dump the core on fatal errors.
 	Hooks LevelHooks
-	// All log entries pass through the formatter before logged to Out. The
-	// included formatters are `TextFormatter` and `JSONFormatter` for which
-	// TextFormatter is the default. In development (when a TTY is attached) it
-	// logs with colors, but to a file it wouldn't. You can easily implement your
-	// own that implements the `Formatter` interface, see the `README` or included
-	// formatters for examples.
-	Formatter Formatter
 
 	// Flag for whether to log caller info (off by default)
 	ReportCaller bool
 
-	// The logging level the logger should log at. This is typically (and defaults
-	// to) `logrus.Info`, which allows Info(), Warn(), Error() and Fatal() to be
-	// logged.
-	Level Level
 	// Used to sync writing to the log. Locking is enabled by Default
 	mu MutexWrap
 	// Reusable empty entry
@@ -77,19 +68,15 @@ func (mw *MutexWrap) Disable() {
 // instantiate your own:
 //
 //    var log = &logrus.Logger{
-//      Out: os.Stderr,
-//      Formatter: new(logrus.TextFormatter),
 //      Hooks: make(logrus.LevelHooks),
-//      Level: logrus.DebugLevel,
+//      sinks: make(LevelSinks),
 //    }
 //
 // It's recommended to make this a global instance called `log`.
 func New() *Logger {
 	return &Logger{
-		Out:          os.Stderr,
-		Formatter:    new(TextFormatter),
 		Hooks:        make(LevelHooks),
-		Level:        InfoLevel,
+		sinks:        make(LevelSinks),
 		ExitFunc:     os.Exit,
 		ReportCaller: false,
 	}
@@ -354,20 +341,6 @@ func (logger *Logger) SetNoLock() {
 	logger.mu.Disable()
 }
 
-func (logger *Logger) level() Level {
-	return Level(atomic.LoadUint32((*uint32)(&logger.Level)))
-}
-
-// SetLevel sets the logger level.
-func (logger *Logger) SetLevel(level Level) {
-	atomic.StoreUint32((*uint32)(&logger.Level), uint32(level))
-}
-
-// GetLevel returns the logger level.
-func (logger *Logger) GetLevel() Level {
-	return logger.level()
-}
-
 // AddHook adds a hook to the logger hooks.
 func (logger *Logger) AddHook(hook Hook) {
 	logger.mu.Lock()
@@ -375,23 +348,29 @@ func (logger *Logger) AddHook(hook Hook) {
 	logger.Hooks.Add(hook)
 }
 
-// IsLevelEnabled checks if the log level of the logger is greater than the level param
 func (logger *Logger) IsLevelEnabled(level Level) bool {
-	return logger.level() >= level
+	if !logger.sinks.Empty() {
+		return !logger.sinks.LevelEmpty(level)
+	}
+
+	return level <= defaultLevel
 }
 
-// SetFormatter sets the logger formatter.
-func (logger *Logger) SetFormatter(formatter Formatter) {
+// RegisterSink sets an output for the logger for the level passed in.
+func (logger *Logger) RegisterSink(sink Sink, level Level) {
 	logger.mu.Lock()
 	defer logger.mu.Unlock()
-	logger.Formatter = formatter
+	if logger.sinks == nil {
+		logger.sinks = make(LevelSinks)
+	}
+	logger.sinks.Add(sink, level)
 }
 
-// SetOutput sets the logger output.
-func (logger *Logger) SetOutput(output io.Writer) {
+// RegisterSinkLevels sets an output for the logger at the specific levels passed in.
+func (logger *Logger) RegisterSinkLevels(sink Sink, levels []Level) {
 	logger.mu.Lock()
 	defer logger.mu.Unlock()
-	logger.Out = output
+	logger.sinks.AddLevels(sink, levels)
 }
 
 func (logger *Logger) SetReportCaller(reportCaller bool) {
@@ -414,4 +393,12 @@ func (logger *Logger) SetBufferPool(pool BufferPool) {
 	logger.mu.Lock()
 	defer logger.mu.Unlock()
 	logger.BufferPool = pool
+}
+
+func RegisterSink(sink Sink, level Level) {
+	std.RegisterSink(sink, level)
+}
+
+func RegisterSinkLevels(sink Sink, levels []Level) {
+	std.RegisterSinkLevels(sink, levels)
 }

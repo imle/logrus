@@ -1,15 +1,16 @@
 package logrus_test
 
 import (
+	"os"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func TestLogger_LogFn(t *testing.T) {
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetLevel(log.WarnLevel)
+	log.RegisterSink(&log.SinkWriter{Out: os.Stderr, Formatter: &log.JSONFormatter{}}, log.WarnLevel)
 
 	notCalled := 0
 	log.InfoFn(func() []interface{} {

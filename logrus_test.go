@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -24,7 +23,7 @@ import (
 // Verify that functions within the Logrus package aren't considered when
 // discovering the caller.
 func TestReportCallerWhenConfigured(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.ReportCaller = false
 		log.Print("testNoCaller")
 	}, func(fields Fields) {
@@ -33,7 +32,7 @@ func TestReportCallerWhenConfigured(t *testing.T) {
 		assert.Equal(t, nil, fields["func"])
 	})
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.ReportCaller = true
 		log.Print("testWithCaller")
 	}, func(fields Fields) {
@@ -43,9 +42,9 @@ func TestReportCallerWhenConfigured(t *testing.T) {
 			"github.com/sirupsen/logrus_test.TestReportCallerWhenConfigured.func3", fields[FieldKeyFunc])
 	})
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, sink *SinkWriter) {
 		log.ReportCaller = true
-		log.Formatter.(*JSONFormatter).CallerPrettyfier = func(f *runtime.Frame) (string, string) {
+		sink.Formatter.(*JSONFormatter).CallerPrettyfier = func(f *runtime.Frame) (string, string) {
 			return "somekindoffunc", "thisisafilename"
 		}
 		log.Print("testWithCallerPrettyfier")
@@ -54,9 +53,9 @@ func TestReportCallerWhenConfigured(t *testing.T) {
 		assert.Equal(t, "thisisafilename", fields[FieldKeyFile])
 	})
 
-	LogAndAssertText(t, func(log *Logger) {
+	LogAndAssertText(t, func(log *Logger, sink *SinkWriter) {
 		log.ReportCaller = true
-		log.Formatter.(*TextFormatter).CallerPrettyfier = func(f *runtime.Frame) (string, string) {
+		sink.Formatter.(*TextFormatter).CallerPrettyfier = func(f *runtime.Frame) (string, string) {
 			return "somekindoffunc", "thisisafilename"
 		}
 		log.Print("testWithCallerPrettyfier")
@@ -71,8 +70,7 @@ func logSomething(t *testing.T, message string) Fields {
 	var fields Fields
 
 	logger := New()
-	logger.Out = &buffer
-	logger.Formatter = new(JSONFormatter)
+	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
 	logger.ReportCaller = true
 
 	entry := logger.WithFields(Fields{
@@ -107,7 +105,7 @@ func TestReportCallerHelperViaPointer(t *testing.T) {
 }
 
 func TestPrint(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Print("test")
 	}, func(fields Fields) {
 		assert.Equal(t, "test", fields["msg"])
@@ -116,7 +114,7 @@ func TestPrint(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Info("test")
 	}, func(fields Fields) {
 		assert.Equal(t, "test", fields["msg"])
@@ -125,7 +123,7 @@ func TestInfo(t *testing.T) {
 }
 
 func TestWarn(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Warn("test")
 	}, func(fields Fields) {
 		assert.Equal(t, "test", fields["msg"])
@@ -134,7 +132,7 @@ func TestWarn(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Log(WarnLevel, "test")
 	}, func(fields Fields) {
 		assert.Equal(t, "test", fields["msg"])
@@ -143,7 +141,7 @@ func TestLog(t *testing.T) {
 }
 
 func TestInfolnShouldAddSpacesBetweenStrings(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Infoln("test", "test")
 	}, func(fields Fields) {
 		assert.Equal(t, "test test", fields["msg"])
@@ -151,7 +149,7 @@ func TestInfolnShouldAddSpacesBetweenStrings(t *testing.T) {
 }
 
 func TestInfolnShouldAddSpacesBetweenStringAndNonstring(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Infoln("test", 10)
 	}, func(fields Fields) {
 		assert.Equal(t, "test 10", fields["msg"])
@@ -159,7 +157,7 @@ func TestInfolnShouldAddSpacesBetweenStringAndNonstring(t *testing.T) {
 }
 
 func TestInfolnShouldAddSpacesBetweenTwoNonStrings(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Infoln(10, 10)
 	}, func(fields Fields) {
 		assert.Equal(t, "10 10", fields["msg"])
@@ -167,7 +165,7 @@ func TestInfolnShouldAddSpacesBetweenTwoNonStrings(t *testing.T) {
 }
 
 func TestInfoShouldAddSpacesBetweenTwoNonStrings(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Infoln(10, 10)
 	}, func(fields Fields) {
 		assert.Equal(t, "10 10", fields["msg"])
@@ -175,7 +173,7 @@ func TestInfoShouldAddSpacesBetweenTwoNonStrings(t *testing.T) {
 }
 
 func TestInfoShouldNotAddSpacesBetweenStringAndNonstring(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Info("test", 10)
 	}, func(fields Fields) {
 		assert.Equal(t, "test10", fields["msg"])
@@ -183,7 +181,7 @@ func TestInfoShouldNotAddSpacesBetweenStringAndNonstring(t *testing.T) {
 }
 
 func TestInfoShouldNotAddSpacesBetweenStrings(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.Info("test", "test")
 	}, func(fields Fields) {
 		assert.Equal(t, "testtest", fields["msg"])
@@ -195,8 +193,7 @@ func TestWithFieldsShouldAllowAssignments(t *testing.T) {
 	var fields Fields
 
 	logger := New()
-	logger.Out = &buffer
-	logger.Formatter = new(JSONFormatter)
+	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
 
 	localLog := logger.WithFields(Fields{
 		"key1": "value1",
@@ -221,7 +218,7 @@ func TestWithFieldsShouldAllowAssignments(t *testing.T) {
 }
 
 func TestUserSuppliedFieldDoesNotOverwriteDefaults(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.WithField("msg", "hello").Info("test")
 	}, func(fields Fields) {
 		assert.Equal(t, "test", fields["msg"])
@@ -229,7 +226,7 @@ func TestUserSuppliedFieldDoesNotOverwriteDefaults(t *testing.T) {
 }
 
 func TestUserSuppliedMsgFieldHasPrefix(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.WithField("msg", "hello").Info("test")
 	}, func(fields Fields) {
 		assert.Equal(t, "test", fields["msg"])
@@ -238,7 +235,7 @@ func TestUserSuppliedMsgFieldHasPrefix(t *testing.T) {
 }
 
 func TestUserSuppliedTimeFieldHasPrefix(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.WithField("time", "hello").Info("test")
 	}, func(fields Fields) {
 		assert.Equal(t, "hello", fields["fields.time"])
@@ -246,7 +243,7 @@ func TestUserSuppliedTimeFieldHasPrefix(t *testing.T) {
 }
 
 func TestUserSuppliedLevelFieldHasPrefix(t *testing.T) {
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.WithField("level", 1).Info("test")
 	}, func(fields Fields) {
 		assert.Equal(t, "info", fields["level"])
@@ -255,7 +252,7 @@ func TestUserSuppliedLevelFieldHasPrefix(t *testing.T) {
 }
 
 func TestDefaultFieldsAreNotPrefixed(t *testing.T) {
-	LogAndAssertText(t, func(log *Logger) {
+	LogAndAssertText(t, func(log *Logger, _ *SinkWriter) {
 		ll := log.WithField("herp", "derp")
 		ll.Info("hello")
 		ll.Info("bye")
@@ -271,7 +268,7 @@ func TestDefaultFieldsAreNotPrefixed(t *testing.T) {
 func TestWithTimeShouldOverrideTime(t *testing.T) {
 	now := time.Now().Add(24 * time.Hour)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.WithTime(now).Info("foobar")
 	}, func(fields Fields) {
 		assert.Equal(t, fields["time"], now.Format(time.RFC3339))
@@ -281,7 +278,7 @@ func TestWithTimeShouldOverrideTime(t *testing.T) {
 func TestWithTimeShouldNotOverrideFields(t *testing.T) {
 	now := time.Now().Add(24 * time.Hour)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.WithField("herp", "derp").WithTime(now).Info("blah")
 	}, func(fields Fields) {
 		assert.Equal(t, fields["time"], now.Format(time.RFC3339))
@@ -292,7 +289,7 @@ func TestWithTimeShouldNotOverrideFields(t *testing.T) {
 func TestWithFieldShouldNotOverrideTime(t *testing.T) {
 	now := time.Now().Add(24 * time.Hour)
 
-	LogAndAssertJSON(t, func(log *Logger) {
+	LogAndAssertJSON(t, func(log *Logger, _ *SinkWriter) {
 		log.WithTime(now).WithField("herp", "derp").Info("blah")
 	}, func(fields Fields) {
 		assert.Equal(t, fields["time"], now.Format(time.RFC3339))
@@ -305,10 +302,9 @@ func TestTimeOverrideMultipleLogs(t *testing.T) {
 	var firstFields, secondFields Fields
 
 	logger := New()
-	logger.Out = &buffer
 	formatter := new(JSONFormatter)
 	formatter.TimestampFormat = time.StampMilli
-	logger.Formatter = formatter
+	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: formatter}, InfoLevel)
 
 	llog := logger.WithField("herp", "derp")
 	llog.Info("foo")
@@ -333,8 +329,7 @@ func TestDoubleLoggingDoesntPrefixPreviousFields(t *testing.T) {
 	var fields Fields
 
 	logger := New()
-	logger.Out = &buffer
-	logger.Formatter = new(JSONFormatter)
+	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
 
 	llog := logger.WithField("context", "eating raw fish")
 
@@ -364,8 +359,7 @@ func TestNestedLoggingReportsCorrectCaller(t *testing.T) {
 	var fields Fields
 
 	logger := New()
-	logger.Out = &buffer
-	logger.Formatter = new(JSONFormatter)
+	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
 	logger.ReportCaller = true
 
 	llog := logger.WithField("context", "eating raw fish")
@@ -421,8 +415,7 @@ func logLoop(iterations int, reportCaller bool) {
 	var buffer bytes.Buffer
 
 	logger := New()
-	logger.Out = &buffer
-	logger.Formatter = new(JSONFormatter)
+	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
 	logger.ReportCaller = reportCaller
 
 	for i := 0; i < iterations; i++ {
@@ -550,23 +543,6 @@ func TestLevelString(t *testing.T) {
 	_ = loggerlevel.String()
 }
 
-func TestGetSetLevelRace(t *testing.T) {
-	wg := sync.WaitGroup{}
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			if i%2 == 0 {
-				SetLevel(InfoLevel)
-			} else {
-				GetLevel()
-			}
-		}(i)
-
-	}
-	wg.Wait()
-}
-
 func TestLoggingRace(t *testing.T) {
 	logger := New()
 
@@ -637,7 +613,6 @@ func TestReplaceHooks(t *testing.T) {
 	old, cur := &TestHook{}, &TestHook{}
 
 	logger := New()
-	logger.SetOutput(ioutil.Discard)
 	logger.AddHook(old)
 
 	hooks := make(LevelHooks)
@@ -666,7 +641,7 @@ func TestLogrusInterfaces(t *testing.T) {
 	}
 	// test logger
 	logger := New()
-	logger.Out = &buffer
+	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &TextFormatter{}}, InfoLevel)
 	fn(logger)
 
 	// test Entry
@@ -687,8 +662,7 @@ func (cw channelWriter) Write(p []byte) (int, error) {
 func TestEntryWriter(t *testing.T) {
 	cw := channelWriter(make(chan []byte, 1))
 	log := New()
-	log.Out = cw
-	log.Formatter = new(JSONFormatter)
+	log.RegisterSink(&SinkWriter{Out: &cw, Formatter: &JSONFormatter{}}, InfoLevel)
 	_, err := log.WithField("foo", "bar").WriterLevel(WarnLevel).Write([]byte("hello\n"))
 	if err != nil {
 		t.Error("unexecpted error", err)
@@ -702,87 +676,22 @@ func TestEntryWriter(t *testing.T) {
 	assert.Equal(t, fields["level"], "warning")
 }
 
-func TestLogLevelEnabled(t *testing.T) {
-	log := New()
-	log.SetLevel(PanicLevel)
-	assert.Equal(t, true, log.IsLevelEnabled(PanicLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(FatalLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(ErrorLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(WarnLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(InfoLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(DebugLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(TraceLevel))
-
-	log.SetLevel(FatalLevel)
-	assert.Equal(t, true, log.IsLevelEnabled(PanicLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(FatalLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(ErrorLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(WarnLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(InfoLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(DebugLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(TraceLevel))
-
-	log.SetLevel(ErrorLevel)
-	assert.Equal(t, true, log.IsLevelEnabled(PanicLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(FatalLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(ErrorLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(WarnLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(InfoLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(DebugLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(TraceLevel))
-
-	log.SetLevel(WarnLevel)
-	assert.Equal(t, true, log.IsLevelEnabled(PanicLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(FatalLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(ErrorLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(WarnLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(InfoLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(DebugLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(TraceLevel))
-
-	log.SetLevel(InfoLevel)
-	assert.Equal(t, true, log.IsLevelEnabled(PanicLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(FatalLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(ErrorLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(WarnLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(InfoLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(DebugLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(TraceLevel))
-
-	log.SetLevel(DebugLevel)
-	assert.Equal(t, true, log.IsLevelEnabled(PanicLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(FatalLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(ErrorLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(WarnLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(InfoLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(DebugLevel))
-	assert.Equal(t, false, log.IsLevelEnabled(TraceLevel))
-
-	log.SetLevel(TraceLevel)
-	assert.Equal(t, true, log.IsLevelEnabled(PanicLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(FatalLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(ErrorLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(WarnLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(InfoLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(DebugLevel))
-	assert.Equal(t, true, log.IsLevelEnabled(TraceLevel))
-}
-
 func TestReportCallerOnTextFormatter(t *testing.T) {
 	l := New()
+	formatter := &TextFormatter{}
+	l.RegisterSink(&SinkWriter{Out: os.Stderr, Formatter: formatter}, InfoLevel)
 
-	l.Formatter.(*TextFormatter).ForceColors = true
-	l.Formatter.(*TextFormatter).DisableColors = false
+	formatter.ForceColors = true
+	formatter.DisableColors = false
 	l.WithFields(Fields{"func": "func", "file": "file"}).Info("test")
 
-	l.Formatter.(*TextFormatter).ForceColors = false
-	l.Formatter.(*TextFormatter).DisableColors = true
+	formatter.ForceColors = false
+	formatter.DisableColors = true
 	l.WithFields(Fields{"func": "func", "file": "file"}).Info("test")
 }
 
 func TestSetReportCallerRace(t *testing.T) {
 	l := New()
-	l.Out = ioutil.Discard
 	l.SetReportCaller(true)
 
 	var wg sync.WaitGroup

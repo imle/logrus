@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package logrus_test
@@ -7,19 +8,24 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
-	slhooks "github.com/sirupsen/logrus/hooks/syslog"
+	slhooks "github.com/sirupsen/logrus/sinks/syslog"
 )
 
 // An example on how to use a hook
 func Example_hook() {
-	var log = logrus.New()
-	log.Formatter = new(logrus.TextFormatter)                     // default
-	log.Formatter.(*logrus.TextFormatter).DisableColors = true    // remove colors
-	log.Formatter.(*logrus.TextFormatter).DisableTimestamp = true // remove timestamp from test output
-	if sl, err := slhooks.NewSyslogHook("udp", "localhost:514", syslog.LOG_INFO, ""); err == nil {
-		log.Hooks.Add(sl)
+	formatter := &logrus.TextFormatter{
+		DisableColors:    true, // remove colors
+		DisableTimestamp: true, // remove timestamp from test output
 	}
-	log.Out = os.Stdout
+
+	var log = logrus.New()
+
+	sink, err := slhooks.NewSink(formatter, "udp", "localhost:514", syslog.LOG_INFO, "")
+	if err != nil {
+		panic(err)
+	}
+	log.RegisterSink(sink, logrus.InfoLevel)
+	log.RegisterSink(&logrus.SinkWriter{Out: os.Stdout, Formatter: formatter}, logrus.InfoLevel)
 
 	log.WithFields(logrus.Fields{
 		"animal": "walrus",
