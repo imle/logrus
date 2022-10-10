@@ -2,6 +2,7 @@ package logrus
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 )
 
@@ -18,6 +19,21 @@ func StandardLogger() *Logger {
 // method as a field.
 func SetReportCaller(include bool) {
 	std.SetReportCaller(include)
+}
+
+// SetLevel sets the standard logger level.
+func SetLevel(level Level) {
+	atomic.StoreUint32((*uint32)(&defaultLevel), uint32(level))
+}
+
+// GetLevel returns the standard logger level.
+func GetLevel() Level {
+	return defaultLevel
+}
+
+// IsLevelEnabled checks if the log level of the standard logger is greater than the level param
+func IsLevelEnabled(level Level) bool {
+	return std.IsLevelEnabled(level)
 }
 
 // AddHook adds a hook to the standard logger hooks.

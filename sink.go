@@ -12,7 +12,7 @@ var defaultSink = SinkWriter{
 	Formatter: &TextFormatter{},
 }
 
-const defaultLevel = InfoLevel
+var defaultLevel = InfoLevel
 
 type LevelSinks map[Level][]Sink
 
@@ -38,7 +38,7 @@ func (sinks LevelSinks) AddLevels(sink Sink, levels []Level) {
 }
 
 func (sinks LevelSinks) emit(entry *Entry) {
-	if sinks.Empty() && entry.Level <= InfoLevel {
+	if sinks.Empty() && entry.Level <= defaultLevel {
 		if err := emitWithBuffer(&defaultSink, entry); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "failed to write to log, %v\n", err)
 		}
