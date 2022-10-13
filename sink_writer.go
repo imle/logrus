@@ -10,22 +10,19 @@ type SinkWriter struct {
 	out io.Writer
 	SinkBase
 
-	mu               sync.Mutex
-	terminalInitOnce sync.Once
-	outIsTerminal    bool
+	mu            sync.Mutex
+	outIsTerminal bool
 }
 
 func NewSinkWriter(out io.Writer, formatter Formatter, lvl Level) *SinkWriter {
-	return &SinkWriter{out: out, SinkBase: SinkBase{Formatter: formatter, Level: lvl}}
+	s := &SinkWriter{out: out, SinkBase: SinkBase{Formatter: formatter, Level: lvl}}
+	s.outIsTerminal = checkIfTerminal(s.out)
+	return s
 }
 
 func (s *SinkWriter) Emit(entry *Entry) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	s.terminalInitOnce.Do(func() {
-		s.outIsTerminal = checkIfTerminal(s.out)
-	})
 
 	var err error
 	var serialized []byte
@@ -46,4 +43,12 @@ func (s *SinkWriter) Emit(entry *Entry) error {
 	}
 
 	return nil
+}
+
+func (s *SinkWriter) SetOutput(out io.Writer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.out = out
+	s.outIsTerminal = checkIfTerminal(s.out)
 }
