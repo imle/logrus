@@ -44,9 +44,9 @@ func TestReportCallerWhenConfigured(t *testing.T) {
 
 	LogAndAssertJSON(t, func(log *Logger, sink *SinkWriter) {
 		log.ReportCaller = true
-		sink.Formatter.(*JSONFormatter).CallerPrettyfier = func(f *runtime.Frame) (string, string) {
+		sink.SetFormatter(&JSONFormatter{CallerPrettyfier: func(f *runtime.Frame) (string, string) {
 			return "somekindoffunc", "thisisafilename"
-		}
+		}})
 		log.Print("testWithCallerPrettyfier")
 	}, func(fields Fields) {
 		assert.Equal(t, "somekindoffunc", fields[FieldKeyFunc])
@@ -55,9 +55,9 @@ func TestReportCallerWhenConfigured(t *testing.T) {
 
 	LogAndAssertText(t, func(log *Logger, sink *SinkWriter) {
 		log.ReportCaller = true
-		sink.Formatter.(*TextFormatter).CallerPrettyfier = func(f *runtime.Frame) (string, string) {
+		sink.SetFormatter(&TextFormatter{CallerPrettyfier: func(f *runtime.Frame) (string, string) {
 			return "somekindoffunc", "thisisafilename"
-		}
+		}})
 		log.Print("testWithCallerPrettyfier")
 	}, func(fields map[string]string) {
 		assert.Equal(t, "somekindoffunc", fields[FieldKeyFunc])
@@ -70,7 +70,7 @@ func logSomething(t *testing.T, message string) Fields {
 	var fields Fields
 
 	logger := New()
-	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(&buffer, &JSONFormatter{}, InfoLevel))
 	logger.ReportCaller = true
 
 	entry := logger.WithFields(Fields{
@@ -193,7 +193,7 @@ func TestWithFieldsShouldAllowAssignments(t *testing.T) {
 	var fields Fields
 
 	logger := New()
-	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(&buffer, &JSONFormatter{}, InfoLevel))
 
 	localLog := logger.WithFields(Fields{
 		"key1": "value1",
@@ -304,7 +304,7 @@ func TestTimeOverrideMultipleLogs(t *testing.T) {
 	logger := New()
 	formatter := new(JSONFormatter)
 	formatter.TimestampFormat = time.StampMilli
-	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: formatter}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(&buffer, formatter, InfoLevel))
 
 	llog := logger.WithField("herp", "derp")
 	llog.Info("foo")
@@ -329,7 +329,7 @@ func TestDoubleLoggingDoesntPrefixPreviousFields(t *testing.T) {
 	var fields Fields
 
 	logger := New()
-	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(&buffer, &JSONFormatter{}, InfoLevel))
 
 	llog := logger.WithField("context", "eating raw fish")
 
@@ -359,7 +359,7 @@ func TestNestedLoggingReportsCorrectCaller(t *testing.T) {
 	var fields Fields
 
 	logger := New()
-	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(&buffer, &JSONFormatter{}, InfoLevel))
 	logger.ReportCaller = true
 
 	llog := logger.WithField("context", "eating raw fish")
@@ -415,7 +415,7 @@ func logLoop(iterations int, reportCaller bool) {
 	var buffer bytes.Buffer
 
 	logger := New()
-	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(&buffer, &JSONFormatter{}, InfoLevel))
 	logger.ReportCaller = reportCaller
 
 	for i := 0; i < iterations; i++ {
@@ -533,7 +533,7 @@ func TestParseLevel(t *testing.T) {
 	assert.Equal(t, TraceLevel, l)
 
 	_, err = ParseLevel("invalid")
-	assert.Equal(t, "not a valid logrus Level: \"invalid\"", err.Error())
+	assert.Equal(t, "not a valid logrus level: \"invalid\"", err.Error())
 }
 
 func TestLevelString(t *testing.T) {
@@ -641,7 +641,7 @@ func TestLogrusInterfaces(t *testing.T) {
 	}
 	// test logger
 	logger := New()
-	logger.RegisterSink(&SinkWriter{Out: &buffer, Formatter: &TextFormatter{}}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(&buffer, &TextFormatter{}, InfoLevel))
 	fn(logger)
 
 	// test Entry
@@ -651,7 +651,7 @@ func TestLogrusInterfaces(t *testing.T) {
 
 // Implements io.Writer using channels for synchronization, so we can wait on
 // the Entry.Writer goroutine to write in a non-racey way. This does assume that
-// there is a single call to Logger.Out for each message.
+// there is a single call to Logger.out for each message.
 type channelWriter chan []byte
 
 func (cw channelWriter) Write(p []byte) (int, error) {
@@ -662,7 +662,7 @@ func (cw channelWriter) Write(p []byte) (int, error) {
 func TestEntryWriter(t *testing.T) {
 	cw := channelWriter(make(chan []byte, 1))
 	log := New()
-	log.RegisterSink(&SinkWriter{Out: &cw, Formatter: &JSONFormatter{}}, InfoLevel)
+	log.RegisterSink(NewSinkWriter(&cw, &JSONFormatter{}, InfoLevel))
 	_, err := log.WithField("foo", "bar").WriterLevel(WarnLevel).Write([]byte("hello\n"))
 	if err != nil {
 		t.Error("unexecpted error", err)
@@ -679,7 +679,7 @@ func TestEntryWriter(t *testing.T) {
 func TestReportCallerOnTextFormatter(t *testing.T) {
 	l := New()
 	formatter := &TextFormatter{}
-	l.RegisterSink(&SinkWriter{Out: os.Stderr, Formatter: formatter}, InfoLevel)
+	l.RegisterSink(NewSinkWriter(os.Stderr, formatter, InfoLevel))
 
 	formatter.ForceColors = true
 	formatter.DisableColors = false

@@ -25,10 +25,7 @@ func BenchmarkDummyLoggerNoLock(b *testing.B) {
 
 func doLoggerBenchmark(b *testing.B, out *os.File, formatter Formatter, fields Fields) {
 	logger := Logger{}
-	logger.RegisterSink(&SinkWriter{
-		Out:       out,
-		Formatter: formatter,
-	}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(out, formatter, InfoLevel))
 	entry := logger.WithFields(fields)
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -39,7 +36,7 @@ func doLoggerBenchmark(b *testing.B, out *os.File, formatter Formatter, fields F
 
 func doLoggerBenchmarkNoLock(b *testing.B, out *os.File, formatter Formatter, fields Fields) {
 	logger := Logger{}
-	logger.RegisterSink(&SinkWriter{Out: out, Formatter: formatter}, InfoLevel)
+	logger.RegisterSink(NewSinkWriter(out, formatter, InfoLevel))
 	logger.SetNoLock()
 	entry := logger.WithFields(fields)
 	b.RunParallel(func(pb *testing.PB) {

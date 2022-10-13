@@ -20,12 +20,12 @@ func Example_hook() {
 
 	var log = logrus.New()
 
-	sink, err := slhooks.NewSink(formatter, "udp", "localhost:514", syslog.LOG_INFO, "")
+	sink, err := slhooks.NewSink(formatter, logrus.InfoLevel, "udp", "localhost:514", syslog.LOG_INFO, "")
 	if err != nil {
 		panic(err)
 	}
-	log.RegisterSink(sink, logrus.InfoLevel)
-	log.RegisterSink(&logrus.SinkWriter{Out: os.Stdout, Formatter: formatter}, logrus.InfoLevel)
+	log.RegisterSink(sink)
+	log.RegisterSink(logrus.NewSinkWriter(os.Stdout, formatter, logrus.InfoLevel))
 
 	log.WithFields(logrus.Fields{
 		"animal": "walrus",

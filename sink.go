@@ -4,47 +4,70 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 )
 
 var defaultSink = SinkWriter{
-	mu:        sync.Mutex{},
-	Out:       os.Stderr,
-	Formatter: &TextFormatter{},
+	mu:  sync.Mutex{},
+	out: os.Stderr,
+	SinkBase: SinkBase{
+		Level:     InfoLevel,
+		Formatter: &TextFormatter{},
+	},
 }
-
-var defaultLevel = InfoLevel
-
-type LevelSinks map[Level][]Sink
 
 type Sink interface {
 	Emit(*Entry) error
+	EnabledAtLevel(Level) bool
+	SetLevel(Level)
+	GetLevel() Level
+	SetFormatter(Formatter)
 }
 
-// Add a hook to an instance of logger with the level specified and all above it.
-func (sinks LevelSinks) Add(sink Sink, level Level) {
-	for _, lvl := range AllLevels {
-		if lvl > level {
-			break
+type SinkBase struct {
+	Level     Level
+	Formatter Formatter
+}
+
+func (s *SinkBase) EnabledAtLevel(lvl Level) bool {
+	return s.Level >= lvl
+}
+
+func (s *SinkBase) SetLevel(lvl Level) {
+	atomic.StoreUint32((*uint32)(&s.Level), uint32(lvl))
+}
+
+func (s *SinkBase) GetLevel() Level {
+	return s.Level
+}
+
+func (s *SinkBase) SetFormatter(formatter Formatter) {
+	s.Formatter = formatter
+}
+
+type LevelSinks []Sink
+
+func (sinks LevelSinks) EnabledAtLevel(lvl Level) bool {
+	for _, sink := range sinks {
+		if sink.EnabledAtLevel(lvl) {
+			return true
 		}
-		sinks[lvl] = append(sinks[lvl], sink)
 	}
-}
 
-// AddLevels a hook to an instance of logger with the specific set of levels passed in.
-func (sinks LevelSinks) AddLevels(sink Sink, levels []Level) {
-	for _, level := range levels {
-		sinks[level] = append(sinks[level], sink)
-	}
+	return false
 }
 
 func (sinks LevelSinks) emit(entry *Entry) {
-	if sinks.Empty() && entry.Level <= defaultLevel {
+	if sinks.Empty() && defaultSink.EnabledAtLevel(entry.Level) {
 		if err := emitWithBuffer(&defaultSink, entry); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "failed to write to log, %v\n", err)
 		}
 	}
 
-	for _, sink := range sinks[entry.Level] {
+	for _, sink := range sinks {
+		if !sink.EnabledAtLevel(entry.Level) {
+			continue
+		}
 		if err := emitWithBuffer(sink, entry); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "failed to write to log, %v\n", err)
 		}
@@ -66,19 +89,5 @@ func emitWithBuffer(sink Sink, entry *Entry) error {
 }
 
 func (sinks LevelSinks) Empty() bool {
-	if len(sinks) == 0 {
-		return true
-	}
-
-	for _, level := range AllLevels {
-		if len(sinks[level]) != 0 {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (sinks LevelSinks) LevelEmpty(level Level) bool {
-	return len(sinks) == 0 || len(sinks[level]) == 0
+	return len(sinks) == 0
 }

@@ -22,7 +22,7 @@ func (h *DefaultFieldHook) Fire(e *logrus.Entry) error {
 func ExampleDefaultFieldHook() {
 	l := logrus.New()
 	formatter := &logrus.TextFormatter{DisableTimestamp: true, DisableColors: true}
-	l.RegisterSink(&logrus.SinkWriter{Out: os.Stdout, Formatter: formatter}, logrus.InfoLevel)
+	l.RegisterSink(logrus.NewSinkWriter(os.Stdout, formatter, logrus.InfoLevel))
 
 	l.AddHook(&DefaultFieldHook{GetValue: func() string { return "with its default value" }})
 	l.Info("first log")

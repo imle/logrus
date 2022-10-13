@@ -10,7 +10,7 @@ import (
 // An example on how to use a hook
 func Example_noRegistrations() {
 	var log = New()
-	defaultSink.Out = os.Stdout
+	defaultSink.out = os.Stdout
 	defaultSink.Formatter.(*TextFormatter).DisableTimestamp = true
 
 	log.WithFields(Fields{

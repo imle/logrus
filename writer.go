@@ -60,7 +60,7 @@ func (entry *Entry) writerScanner(reader *io.PipeReader, printFunc func(args ...
 		printFunc(scanner.Text())
 	}
 	if err := scanner.Err(); err != nil {
-		entry.Errorf("Error while reading from Writer: %s", err)
+		entry.Errorf("Error while reading from writer: %s", err)
 	}
 	reader.Close()
 }

@@ -33,11 +33,11 @@ func TestLocalhostAddAndPrint(t *testing.T) {
 
 	log := logrus.New()
 	formatter := &logrus.TextFormatter{DisableTimestamp: true, DisableColors: true}
-	sink, err := NewSink(formatter, "udp", "localhost:32142", syslog.LOG_INFO, "")
+	sink, err := NewSink(formatter, logrus.TraceLevel, "udp", "localhost:32142", syslog.LOG_INFO, "")
 	if err != nil {
 		t.Errorf("Unable to connect to local syslog.")
 	}
-	log.RegisterSink(sink, logrus.TraceLevel)
+	log.RegisterSink(sink)
 
 	for _, level := range logrus.AllLevels {
 		if !log.IsLevelEnabled(level) {

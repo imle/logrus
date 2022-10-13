@@ -26,7 +26,7 @@ func ExampleLogger_Writer_httpServer() {
 
 func ExampleLogger_Writer_stdlib() {
 	logger := logrus.New()
-	logger.RegisterSink(&logrus.SinkWriter{Out: os.Stderr, Formatter: &logrus.JSONFormatter{}}, logrus.InfoLevel)
+	logger.RegisterSink(logrus.NewSinkWriter(os.Stderr, &logrus.JSONFormatter{}, logrus.InfoLevel))
 
 	// Use logrus for standard log output
 	// Note that `log` here references stdlib's log

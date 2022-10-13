@@ -16,7 +16,7 @@ type Logger struct {
 	// The logs are `io.Copy`'d to this in a mutex. It's common to set this to a
 	// file, or leave it default which is `os.Stderr`. You can also set this to
 	// something more adventurous, such as logging to Kafka.
-	//Out io.Writer
+	//out io.writer
 
 	// The logs are output to the sinks registered to the Logger.
 	// If no sinks are registered then a default Sink to Stderr is registered.
@@ -63,20 +63,20 @@ func (mw *MutexWrap) Disable() {
 	mw.disabled = true
 }
 
-// Creates a new logger. Configuration should be set by changing `Formatter`,
-// `Out` and `Hooks` directly on the default logger instance. You can also just
+// Creates a new logger. Configuration should be set by changing `formatter`,
+// `out` and `Hooks` directly on the default logger instance. You can also just
 // instantiate your own:
 //
-//    var log = &logrus.Logger{
-//      Hooks: make(logrus.LevelHooks),
-//      sinks: make(LevelSinks),
-//    }
+//	var log = &logrus.Logger{
+//	  Hooks: make(logrus.LevelHooks),
+//	  sinks: make(LevelSinks),
+//	}
 //
 // It's recommended to make this a global instance called `log`.
 func New() *Logger {
 	return &Logger{
 		Hooks:        make(LevelHooks),
-		sinks:        make(LevelSinks),
+		sinks:        nil,
 		ExitFunc:     os.Exit,
 		ReportCaller: false,
 	}
@@ -349,28 +349,19 @@ func (logger *Logger) AddHook(hook Hook) {
 }
 
 func (logger *Logger) IsLevelEnabled(level Level) bool {
-	if !logger.sinks.Empty() {
-		return !logger.sinks.LevelEmpty(level)
+	if logger.sinks.Empty() {
+		return defaultSink.EnabledAtLevel(level)
 	}
 
-	return level <= defaultLevel
+	return logger.sinks.EnabledAtLevel(level)
 }
 
 // RegisterSink sets an output for the logger for the level passed in.
-func (logger *Logger) RegisterSink(sink Sink, level Level) {
+func (logger *Logger) RegisterSink(sink Sink) {
 	logger.mu.Lock()
 	defer logger.mu.Unlock()
-	if logger.sinks == nil {
-		logger.sinks = make(LevelSinks)
-	}
-	logger.sinks.Add(sink, level)
-}
 
-// RegisterSinkLevels sets an output for the logger at the specific levels passed in.
-func (logger *Logger) RegisterSinkLevels(sink Sink, levels []Level) {
-	logger.mu.Lock()
-	defer logger.mu.Unlock()
-	logger.sinks.AddLevels(sink, levels)
+	logger.sinks = append(logger.sinks, sink)
 }
 
 func (logger *Logger) SetReportCaller(reportCaller bool) {
@@ -395,10 +386,13 @@ func (logger *Logger) SetBufferPool(pool BufferPool) {
 	logger.BufferPool = pool
 }
 
-func RegisterSink(sink Sink, level Level) {
-	std.RegisterSink(sink, level)
+func RegisterSink(sink Sink) {
+	std.RegisterSink(sink)
 }
 
-func RegisterSinkLevels(sink Sink, levels []Level) {
-	std.RegisterSinkLevels(sink, levels)
+func ReplaceSinks(sink Sink) LevelSinks {
+	sinks := std.sinks
+	std.sinks = nil
+	std.RegisterSink(sink)
+	return sinks
 }

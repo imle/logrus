@@ -245,7 +245,7 @@ func TestEntryWithIncorrectField(t *testing.T) {
 func TestEntryLogfLevel(t *testing.T) {
 	logger := New()
 	buffer := &bytes.Buffer{}
-	logger.RegisterSink(NewSinkWriter(buffer), InfoLevel)
+	logger.RegisterSink(NewSinkWriter(buffer, &TextFormatter{}, InfoLevel))
 	entry := NewEntry(logger)
 
 	entry.Logf(DebugLevel, "%s", "debug")

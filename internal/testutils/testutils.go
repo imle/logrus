@@ -17,8 +17,8 @@ func LogAndAssertJSON(t *testing.T, log func(*Logger, *SinkWriter), assertions f
 	var fields Fields
 
 	logger := New()
-	sink := &SinkWriter{Out: &buffer, Formatter: &JSONFormatter{}}
-	logger.RegisterSink(sink, InfoLevel)
+	sink := NewSinkWriter(&buffer, &JSONFormatter{}, InfoLevel)
+	logger.RegisterSink(sink)
 
 	log(logger, sink)
 
@@ -32,8 +32,8 @@ func LogAndAssertText(t *testing.T, log func(*Logger, *SinkWriter), assertions f
 	var buffer bytes.Buffer
 
 	logger := New()
-	sink := &SinkWriter{Out: &buffer, Formatter: &TextFormatter{DisableColors: true}}
-	logger.RegisterSink(sink, InfoLevel)
+	sink := NewSinkWriter(&buffer, &TextFormatter{DisableColors: true}, InfoLevel)
+	logger.RegisterSink(sink)
 
 	log(logger, sink)
 

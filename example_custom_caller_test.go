@@ -21,7 +21,7 @@ func ExampleJSONFormatter_CallerPrettyfier() {
 			return funcname, filename
 		},
 	}
-	l.RegisterSink(&logrus.SinkWriter{Out: os.Stdout, Formatter: formatter}, logrus.InfoLevel)
+	l.RegisterSink(logrus.NewSinkWriter(os.Stdout, formatter, logrus.InfoLevel))
 
 	l.Info("example of custom format caller")
 	// Output:

@@ -106,7 +106,7 @@ func (h *SingleLevelModifyHook) Levels() []Level {
 func TestHookEntryIsPristine(t *testing.T) {
 	l := New()
 	b := &bytes.Buffer{}
-	l.RegisterSink(&SinkWriter{Out: b, Formatter: &JSONFormatter{}}, InfoLevel)
+	l.RegisterSink(NewSinkWriter(b, &JSONFormatter{}, InfoLevel))
 	l.AddHook(&SingleLevelModifyHook{})
 
 	l.Error("error message")

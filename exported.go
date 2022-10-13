@@ -2,14 +2,21 @@ package logrus
 
 import (
 	"context"
-	"sync/atomic"
+	"os"
 	"time"
 )
 
 var (
 	// std is the name of the standard logger in stdlib `log`
-	std = New()
+	std     *Logger
+	stdSink Sink
 )
+
+func init() {
+	std = New()
+	stdSink = NewSinkWriter(os.Stdout, &TextFormatter{}, InfoLevel)
+	std.RegisterSink(stdSink)
+}
 
 func StandardLogger() *Logger {
 	return std
@@ -23,12 +30,12 @@ func SetReportCaller(include bool) {
 
 // SetLevel sets the standard logger level.
 func SetLevel(level Level) {
-	atomic.StoreUint32((*uint32)(&defaultLevel), uint32(level))
+	stdSink.SetLevel(level)
 }
 
 // GetLevel returns the standard logger level.
 func GetLevel() Level {
-	return defaultLevel
+	return stdSink.GetLevel()
 }
 
 // IsLevelEnabled checks if the log level of the standard logger is greater than the level param

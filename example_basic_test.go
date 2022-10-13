@@ -8,13 +8,10 @@ import (
 
 func Example_basic() {
 	var log = logrus.New()
-	log.RegisterSink(&logrus.SinkWriter{
-		Out: os.Stdout,
-		Formatter: &logrus.TextFormatter{
-			DisableColors:    true,
-			DisableTimestamp: true,
-		},
-	}, logrus.TraceLevel)
+	log.RegisterSink(logrus.NewSinkWriter(os.Stdout, &logrus.TextFormatter{
+		DisableColors:    true,
+		DisableTimestamp: true,
+	}, logrus.TraceLevel))
 
 	defer func() {
 		err := recover()

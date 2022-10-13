@@ -41,7 +41,7 @@ func ParseLevel(lvl string) (Level, error) {
 	}
 
 	var l Level
-	return l, fmt.Errorf("not a valid logrus Level: %q", lvl)
+	return l, fmt.Errorf("not a valid logrus level: %q", lvl)
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.

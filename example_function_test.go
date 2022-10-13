@@ -10,7 +10,7 @@ import (
 )
 
 func TestLogger_LogFn(t *testing.T) {
-	log.RegisterSink(&log.SinkWriter{Out: os.Stderr, Formatter: &log.JSONFormatter{}}, log.WarnLevel)
+	log.ReplaceSinks(log.NewSinkWriter(os.Stderr, &log.JSONFormatter{}, log.WarnLevel))
 
 	notCalled := 0
 	log.InfoFn(func() []interface{} {

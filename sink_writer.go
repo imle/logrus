@@ -7,16 +7,16 @@ import (
 )
 
 type SinkWriter struct {
-	Out       io.Writer
-	Formatter Formatter
+	out io.Writer
+	SinkBase
 
 	mu               sync.Mutex
 	terminalInitOnce sync.Once
 	outIsTerminal    bool
 }
 
-func NewSinkWriter(out io.Writer) *SinkWriter {
-	return &SinkWriter{Out: out, Formatter: &TextFormatter{}}
+func NewSinkWriter(out io.Writer, formatter Formatter, lvl Level) *SinkWriter {
+	return &SinkWriter{out: out, SinkBase: SinkBase{Formatter: formatter, Level: lvl}}
 }
 
 func (s *SinkWriter) Emit(entry *Entry) error {
@@ -24,7 +24,7 @@ func (s *SinkWriter) Emit(entry *Entry) error {
 	defer s.mu.Unlock()
 
 	s.terminalInitOnce.Do(func() {
-		s.outIsTerminal = checkIfTerminal(s.Out)
+		s.outIsTerminal = checkIfTerminal(s.out)
 	})
 
 	var err error
@@ -41,8 +41,8 @@ func (s *SinkWriter) Emit(entry *Entry) error {
 		return fmt.Errorf("failed to format: %w", err)
 	}
 
-	if _, err := s.Out.Write(serialized); err != nil {
-		return fmt.Errorf("failed to write to Out: %w", err)
+	if _, err := s.out.Write(serialized); err != nil {
+		return fmt.Errorf("failed to write to out: %w", err)
 	}
 
 	return nil

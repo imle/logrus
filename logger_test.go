@@ -15,7 +15,7 @@ func TestFieldValueError(t *testing.T) {
 	l := &Logger{
 		Hooks: make(LevelHooks),
 	}
-	l.RegisterSink(&SinkWriter{Out: buf, Formatter: &JSONFormatter{}}, DebugLevel)
+	l.RegisterSink(NewSinkWriter(buf, &JSONFormatter{}, DebugLevel))
 	l.WithField("func", func() {}).Info("test")
 	fmt.Println(buf.String())
 	var data map[string]interface{}
@@ -31,7 +31,7 @@ func TestNoFieldValueError(t *testing.T) {
 	l := &Logger{
 		Hooks: make(LevelHooks),
 	}
-	l.RegisterSink(&SinkWriter{Out: buf, Formatter: &JSONFormatter{}}, DebugLevel)
+	l.RegisterSink(NewSinkWriter(buf, &JSONFormatter{}, DebugLevel))
 	l.WithField("str", "str").Info("test")
 	fmt.Println(buf.String())
 	var data map[string]interface{}
@@ -49,12 +49,12 @@ func TestWarninglnNotEqualToWarning(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	log := &Logger{Hooks: make(LevelHooks)}
-	log.RegisterSink(&SinkWriter{Out: buf, Formatter: formatter}, DebugLevel)
+	log.RegisterSink(NewSinkWriter(buf, formatter, DebugLevel))
 	log.Warning("hello,", "world")
 
 	bufLn := &bytes.Buffer{}
 	logLn := &Logger{Hooks: make(LevelHooks)}
-	logLn.RegisterSink(&SinkWriter{Out: bufLn, Formatter: formatter}, DebugLevel)
+	logLn.RegisterSink(NewSinkWriter(buf, formatter, DebugLevel))
 	logLn.Warningln("hello,", "world")
 
 	assert.NotEqual(t, buf.String(), bufLn.String(), "Warning() and Wantingln() should not be equal")
@@ -77,7 +77,7 @@ func (p *testBufferPool) Put(buf *bytes.Buffer) {
 func TestLogger_SetBufferPool(t *testing.T) {
 	out := &bytes.Buffer{}
 	l := New()
-	l.RegisterSink(&SinkWriter{Out: out}, InfoLevel)
+	l.RegisterSink(NewSinkWriter(out, &TextFormatter{}, InfoLevel))
 
 	pool := new(testBufferPool)
 	l.SetBufferPool(pool)
