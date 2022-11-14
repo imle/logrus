@@ -85,6 +85,26 @@ func logSomething(t *testing.T, message string) Fields {
 	return fields
 }
 
+func logSomethingUpALevel(t *testing.T, message string) Fields {
+	var buffer bytes.Buffer
+	var fields Fields
+
+	logger := New()
+	logger.RegisterSink(NewSinkWriter(&buffer, &JSONFormatter{}, InfoLevel))
+	logger.ReportCaller = true
+
+	entry := logger.WithFields(Fields{
+		"foo": "bar",
+	}).WithCallerLevel(1)
+
+	entry.Info(message)
+
+	err := json.Unmarshal(buffer.Bytes(), &fields)
+	assert.Nil(t, err)
+
+	return fields
+}
+
 // TestReportCallerHelperDirect - verify reference when logging from a regular function
 func TestReportCallerHelperDirect(t *testing.T) {
 	fields := logSomething(t, "direct")
@@ -92,6 +112,15 @@ func TestReportCallerHelperDirect(t *testing.T) {
 	assert.Equal(t, "direct", fields["msg"])
 	assert.Equal(t, "info", fields["level"])
 	assert.Regexp(t, "github.com/.*/logrus_test.logSomething", fields["func"])
+}
+
+// TestReportCallerHelperDirectUpOneLevel - verify reference when logging from a regular function with a CallerLevel set
+func TestReportCallerHelperDirectUpOneLevel(t *testing.T) {
+	fields := logSomethingUpALevel(t, "direct")
+
+	assert.Equal(t, "direct", fields["msg"])
+	assert.Equal(t, "info", fields["level"])
+	assert.Regexp(t, "github.com/.*/logrus_test.TestReportCallerHelperDirectUpOneLevel", fields["func"])
 }
 
 // TestReportCallerHelperDirect - verify reference when logging from a function called via pointer

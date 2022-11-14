@@ -110,7 +110,7 @@ func (entry *Entry) dupWithFields(fields Fields) *Entry {
 			data[k] = v
 		}
 	}
-	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, Context: entry.Context, err: entry.err, CallerLevel: entry.CallerLevel}
+	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, Context: entry.Context, err: fieldErr, CallerLevel: entry.CallerLevel}
 }
 
 // Add an error as single field (using the key defined in ErrorKey) to the Entry.
@@ -150,7 +150,7 @@ func (entry *Entry) WithCallerLevel(callerLevel uint) *Entry {
 }
 
 // getPackageName reduces a fully qualified function name to the package name
-// There really ought to be to be a better way...
+// There really ought to be a better way...
 func getPackageName(f string) string {
 	for {
 		lastPeriod := strings.LastIndex(f, ".")
