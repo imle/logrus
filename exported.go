@@ -2,6 +2,7 @@ package logrus
 
 import (
 	"context"
+	"io"
 	"os"
 	"time"
 )
@@ -9,7 +10,7 @@ import (
 var (
 	// std is the name of the standard logger in stdlib `log`
 	std     *Logger
-	stdSink Sink
+	stdSink *SinkWriter
 )
 
 func init() {
@@ -20,6 +21,16 @@ func init() {
 
 func StandardLogger() *Logger {
 	return std
+}
+
+// SetOutput sets the standard logger output.
+func SetOutput(out io.Writer) {
+	stdSink.SetOutput(out)
+}
+
+// SetFormatter sets the standard logger formatter.
+func SetFormatter(formatter Formatter) {
+	stdSink.SetFormatter(formatter)
 }
 
 // SetReportCaller sets whether the standard logger will include the calling
