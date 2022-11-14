@@ -56,6 +56,9 @@ type Entry struct {
 
 	// Calling method, with package name
 	Caller *runtime.Frame
+	// How many levels outside logrus the Caller should be recorded
+	// Useful for instrumentation packages
+	CallerLevel uint
 
 	// Message passed to Trace, Debug, Info, Warn, Error, Fatal or Panic
 	Message string
@@ -79,34 +82,10 @@ func NewEntry(logger *Logger) *Entry {
 }
 
 func (entry *Entry) Dup() *Entry {
-	data := make(Fields, len(entry.Data))
-	for k, v := range entry.Data {
-		data[k] = v
-	}
-	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, Context: entry.Context, err: entry.err}
+	return entry.dupWithFields(nil)
 }
 
-// Add an error as single field (using the key defined in ErrorKey) to the Entry.
-func (entry *Entry) WithError(err error) *Entry {
-	return entry.WithField(ErrorKey, err)
-}
-
-// Add a context to the Entry.
-func (entry *Entry) WithContext(ctx context.Context) *Entry {
-	dataCopy := make(Fields, len(entry.Data))
-	for k, v := range entry.Data {
-		dataCopy[k] = v
-	}
-	return &Entry{Logger: entry.Logger, Data: dataCopy, Time: entry.Time, err: entry.err, Context: ctx}
-}
-
-// Add a single field to the Entry.
-func (entry *Entry) WithField(key string, value interface{}) *Entry {
-	return entry.WithFields(Fields{key: value})
-}
-
-// Add a map of fields to the Entry.
-func (entry *Entry) WithFields(fields Fields) *Entry {
+func (entry *Entry) dupWithFields(fields Fields) *Entry {
 	data := make(Fields, len(entry.Data)+len(fields))
 	for k, v := range entry.Data {
 		data[k] = v
@@ -131,16 +110,43 @@ func (entry *Entry) WithFields(fields Fields) *Entry {
 			data[k] = v
 		}
 	}
-	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, err: fieldErr, Context: entry.Context}
+	return &Entry{Logger: entry.Logger, Data: data, Time: entry.Time, Context: entry.Context, err: entry.err, CallerLevel: entry.CallerLevel}
+}
+
+// Add an error as single field (using the key defined in ErrorKey) to the Entry.
+func (entry *Entry) WithError(err error) *Entry {
+	return entry.WithField(ErrorKey, err)
+}
+
+// Add a context to the Entry.
+func (entry *Entry) WithContext(ctx context.Context) *Entry {
+	e := entry.Dup()
+	e.Context = ctx
+	return e
+}
+
+// Add a single field to the Entry.
+func (entry *Entry) WithField(key string, value interface{}) *Entry {
+	return entry.WithFields(Fields{key: value})
+}
+
+// Add a map of fields to the Entry.
+func (entry *Entry) WithFields(fields Fields) *Entry {
+	return entry.dupWithFields(fields)
 }
 
 // Overrides the time of the Entry.
 func (entry *Entry) WithTime(t time.Time) *Entry {
-	dataCopy := make(Fields, len(entry.Data))
-	for k, v := range entry.Data {
-		dataCopy[k] = v
-	}
-	return &Entry{Logger: entry.Logger, Data: dataCopy, Time: t, err: entry.err, Context: entry.Context}
+	e := entry.Dup()
+	e.Time = t
+	return e
+}
+
+// Overrides the CallerLevel of the Entry.
+func (entry *Entry) WithCallerLevel(callerLevel uint) *Entry {
+	e := entry.Dup()
+	e.CallerLevel = callerLevel
+	return e
 }
 
 // getPackageName reduces a fully qualified function name to the package name
@@ -160,7 +166,7 @@ func getPackageName(f string) string {
 }
 
 // getCaller retrieves the name of the first non-logrus calling function
-func getCaller() *runtime.Frame {
+func getCaller(callerLevel uint) *runtime.Frame {
 	// cache this package's fully-qualified name
 	callerInitOnce.Do(func() {
 		pcs := make([]uintptr, maximumCallerDepth)
@@ -188,7 +194,11 @@ func getCaller() *runtime.Frame {
 
 		// If the caller isn't part of this package, we're done
 		if pkg != logrusPackage {
-			return &f //nolint:scopelint
+			if callerLevel == 0 {
+				return &f //nolint:scopelint
+			} else {
+				callerLevel--
+			}
 		}
 	}
 
@@ -196,10 +206,8 @@ func getCaller() *runtime.Frame {
 	return nil
 }
 
-func (entry Entry) HasCaller() (has bool) {
-	return entry.Logger != nil &&
-		entry.Logger.ReportCaller &&
-		entry.Caller != nil
+func (entry *Entry) HasCaller() (has bool) {
+	return entry.Logger != nil && entry.Logger.ReportCaller && entry.Caller != nil
 }
 
 func (entry *Entry) log(level Level, msg string) {
@@ -217,7 +225,7 @@ func (entry *Entry) log(level Level, msg string) {
 	newEntry.Logger.mu.Unlock()
 
 	if reportCaller {
-		newEntry.Caller = getCaller()
+		newEntry.Caller = getCaller(entry.CallerLevel)
 	}
 
 	newEntry.fireHooks()
@@ -294,11 +302,11 @@ func (entry *Entry) Fatal(args ...interface{}) {
 	entry.Logger.Exit(1)
 }
 
+// Entry Printf family functions
+
 func (entry *Entry) Panic(args ...interface{}) {
 	entry.Log(PanicLevel, args...)
 }
-
-// Entry Printf family functions
 
 func (entry *Entry) Logf(level Level, format string, args ...interface{}) {
 	entry.Log(level, fmt.Sprintf(format, args...))
@@ -337,11 +345,11 @@ func (entry *Entry) Fatalf(format string, args ...interface{}) {
 	entry.Logger.Exit(1)
 }
 
+// Entry Println family functions
+
 func (entry *Entry) Panicf(format string, args ...interface{}) {
 	entry.Logf(PanicLevel, format, args...)
 }
-
-// Entry Println family functions
 
 func (entry *Entry) Logln(level Level, args ...interface{}) {
 	entry.Log(level, entry.sprintlnn(args...))
